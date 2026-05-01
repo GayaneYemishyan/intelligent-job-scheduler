@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Job Scheduler · System Intelligence</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Syne:wght@400;700;800&display=swap" rel="stylesheet" />
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  :root {
+    --bg:        #080c10;
+    --surface:   #0d1117;
+    --border:    #1c2a38;
+    --accent:    #00e5ff;
+    --accent2:   #7b61ff;
+    --success:   #00ff88;
+    --warn:      #ffb800;
+    --danger:    #ff4560;
+    --muted:     #4a637a;
+    --text:      #cdd9e5;
+    --mono:      'Share Tech Mono', monospace;
+    --sans:      'Syne', sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── scanline overlay ── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,229,255,.018) 2px,
+      rgba(0,229,255,.018) 4px
+    );
+    pointer-events: none;
+    z-index: 999;
+  }
+
+  /* ── grid noise bg ── */
+  .grid-bg {
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(0,229,255,.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,229,255,.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+  }
+
+  /* ── glow orbs ── */
+  .orb {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(120px);
+    pointer-events: none;
+    opacity: .18;
+  }
+  .orb-1 { width: 600px; height: 600px; background: var(--accent2); top: -200px; right: -150px; }
+  .orb-2 { width: 500px; height: 500px; background: var(--accent);  bottom: -200px; left: -100px; }
+
+  /* ── card ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    position: relative;
+    overflow: hidden;
+  }
+  .card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    opacity: .5;
+  }
+
+  /* ── header label ── */
+  .label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  /* ── range slider ── */
+  input[type=range] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--border);
+    outline: none;
+    cursor: pointer;
+    position: relative;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 2px solid var(--bg);
+    box-shadow: 0 0 8px var(--accent);
+    cursor: grab;
+    transition: transform .15s, box-shadow .15s;
+  }
+  input[type=range]::-webkit-slider-thumb:active { transform: scale(1.25); cursor: grabbing; }
+  input[type=range]::-moz-range-thumb {
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 2px solid var(--bg);
+    box-shadow: 0 0 8px var(--accent);
+    cursor: grab;
+  }
+
+  /* ── select ── */
+  select {
+    background: #111922;
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-family: var(--mono);
+    font-size: 13px;
+    outline: none;
+    cursor: pointer;
+    width: 100%;
+    transition: border-color .2s;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%234a637a' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+  }
+  select:focus { border-color: var(--accent); }
+
+  /* ── progress bar fill (JS-driven) ── */
+  .track {
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    margin-top: 6px;
+    position: relative;
+    overflow: hidden;
+  }
+  .fill {
+    position: absolute; left: 0; top: 0; bottom: 0;
+    border-radius: 2px;
+    background: linear-gradient(90deg, var(--accent2), var(--accent));
+    transition: width .2s ease;
+  }
+
+  /* ── button ── */
+  .btn-run {
+    font-family: var(--sans);
+    font-weight: 800;
+    font-size: 14px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    padding: 14px 28px;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    background: linear-gradient(135deg, var(--accent2), var(--accent));
+    color: #000;
+    width: 100%;
+    position: relative;
+    overflow: hidden;
+    transition: opacity .2s, transform .15s;
+  }
+  .btn-run::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: rgba(255,255,255,.12);
+    opacity: 0;
+    transition: opacity .2s;
+  }
+  .btn-run:hover::after { opacity: 1; }
+  .btn-run:active { transform: scale(.97); }
+  .btn-run:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+
+  /* ── result card states ── */
+  .result-idle   { border-color: var(--border); }
+  .result-ready  { border-color: var(--success); box-shadow: 0 0 24px rgba(0,255,136,.12); }
+  .result-post   { border-color: var(--warn);    box-shadow: 0 0 24px rgba(255,184,0,.12); }
+  .result-error  { border-color: var(--danger);  box-shadow: 0 0 24px rgba(255,69,96,.12); }
+
+  /* ── status badge ── */
+  .badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    border-radius: 4px;
+  }
+  .badge-dot { width: 6px; height: 6px; border-radius: 50%; }
+
+  /* ── confidence arc ── */
+  .arc-wrap { position: relative; width: 100px; height: 100px; }
+  .arc-wrap svg { transform: rotate(-90deg); }
+  .arc-label {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    font-family: var(--mono);
+  }
+
+  /* ── pulse spinner ── */
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner {
+    width: 22px; height: 22px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+    display: none;
+  }
+
+  /* ── fade-in ── */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .fade-up { animation: fadeUp .4s ease forwards; }
+
+  /* ── blinking cursor ── */
+  @keyframes blink { 50% { opacity: 0; } }
+  .cursor { animation: blink 1s step-end infinite; }
+
+  /* ── metric value number ── */
+  .metric-val {
+    font-family: var(--mono);
+    font-size: 22px;
+    color: var(--accent);
+    line-height: 1;
+  }
+</style>
+</head>
+<body>
+
+<div class="grid-bg"></div>
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+
+<!-- ── HEADER ── -->
+<header class="relative z-10 px-6 py-5 flex items-center justify-between border-b border-[var(--border)]">
+  <div class="flex items-center gap-3">
+    <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:linear-gradient(135deg,var(--accent2),var(--accent))">
+      <svg width="16" height="16" fill="none" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+    <div>
+      <p class="label">Intelligent</p>
+      <p style="font-weight:800;font-size:16px;letter-spacing:.02em;line-height:1.1">Job Scheduler</p>
+    </div>
+  </div>
+  <div class="flex items-center gap-2">
+    <span class="badge" style="background:rgba(0,255,136,.08);color:var(--success)">
+      <span class="badge-dot" style="background:var(--success)"></span>
+      API Connected
+    </span>
+  </div>
+</header>
+
+<!-- ── MAIN ── -->
+<main class="relative z-10 max-w-5xl mx-auto px-4 py-10 grid gap-6 md:grid-cols-[1fr_360px]">
+
+  <!-- LEFT: inputs -->
+  <div class="flex flex-col gap-5">
+
+    <!-- System Metrics -->
+    <div class="card p-6 flex flex-col gap-7">
+      <div>
+        <p class="label mb-1">System Metrics</p>
+        <p style="font-weight:800;font-size:20px">Performance Telemetry</p>
+      </div>
+
+      <!-- CPU -->
+      <div class="flex flex-col gap-3">
+        <div class="flex justify-between items-end">
+          <div>
+            <p class="label">CPU Usage</p>
+            <p class="metric-val" id="cpu-val">50<span style="font-size:14px;color:var(--muted)">%</span></p>
+          </div>
+          <span class="label">0 – 100 %</span>
+        </div>
+        <input type="range" id="cpu" min="0" max="100" value="50" step="1"
+               oninput="updateSlider('cpu', this.value, '%')" />
+        <div class="track"><div class="fill" id="cpu-fill" style="width:50%"></div></div>
+      </div>
+
+      <!-- Memory -->
+      <div class="flex flex-col gap-3">
+        <div class="flex justify-between items-end">
+          <div>
+            <p class="label">Memory Usage</p>
+            <p class="metric-val" id="mem-val">40<span style="font-size:14px;color:var(--muted)">%</span></p>
+          </div>
+          <span class="label">0 – 100 %</span>
+        </div>
+        <input type="range" id="mem" min="0" max="100" value="40" step="1"
+               oninput="updateSlider('mem', this.value, '%')" />
+        <div class="track"><div class="fill" id="mem-fill" style="width:40%"></div></div>
+      </div>
+
+      <!-- Network -->
+      <div class="flex flex-col gap-3">
+        <div class="flex justify-between items-end">
+          <div>
+            <p class="label">Network Traffic</p>
+            <p class="metric-val" id="net-val">25<span style="font-size:14px;color:var(--muted)">Mbps</span></p>
+          </div>
+          <span class="label">0 – 500 Mbps</span>
+        </div>
+        <input type="range" id="net" min="0" max="500" value="25" step="1"
+               oninput="updateSlider('net', this.value, 'Mbps')" />
+        <div class="track"><div class="fill" id="net-fill" style="width:5%"></div></div>
+      </div>
+    </div>
+
+    <!-- Priority -->
+    <div class="card p-6 flex flex-col gap-4">
+      <div>
+        <p class="label mb-1">Scheduling Config</p>
+        <p style="font-weight:800;font-size:20px">Job Priority Level</p>
+      </div>
+      <div class="relative">
+        <select id="priority">
+          <option value="Low">Low — Background processing</option>
+          <option value="Medium" selected>Medium — Standard workload</option>
+          <option value="High">High — Time-sensitive task</option>
+          <option value="Urgent">Urgent — Critical execution</option>
+        </select>
+      </div>
+      <!-- Priority matrix -->
+      <div class="grid grid-cols-4 gap-2 mt-1">
+        <div class="priority-chip rounded-lg p-2 text-center cursor-pointer border border-[var(--border)] transition-all" onclick="setPriority('Low')" style="font-family:var(--mono);font-size:11px">Low</div>
+        <div class="priority-chip rounded-lg p-2 text-center cursor-pointer border border-[var(--accent)] transition-all" style="background:rgba(0,229,255,.06);font-family:var(--mono);font-size:11px" onclick="setPriority('Medium')">Medium</div>
+        <div class="priority-chip rounded-lg p-2 text-center cursor-pointer border border-[var(--border)] transition-all" onclick="setPriority('High')" style="font-family:var(--mono);font-size:11px">High</div>
+        <div class="priority-chip rounded-lg p-2 text-center cursor-pointer border border-[var(--border)] transition-all" onclick="setPriority('Urgent')" style="font-family:var(--mono);font-size:11px">Urgent</div>
+      </div>
+    </div>
+
+    <!-- Run button -->
+    <button class="btn-run" id="run-btn" onclick="runPrediction()">
+      <span id="btn-label">▶ &nbsp;Run Scheduler Prediction</span>
+      <div class="spinner mx-auto" id="spinner"></div>
+    </button>
+
+  </div>
+
+  <!-- RIGHT: result panel -->
+  <div class="flex flex-col gap-5">
+
+    <!-- Result Card -->
+    <div class="card result-idle p-6 flex flex-col gap-6 transition-all duration-300" id="result-card">
+      <div>
+        <p class="label mb-1">Model Output</p>
+        <p style="font-weight:800;font-size:20px">Prediction Result</p>
+      </div>
+
+      <!-- Status -->
+      <div class="flex flex-col gap-2">
+        <p class="label">Predicted Status</p>
+        <div class="flex items-center gap-3">
+          <div class="text-4xl font-extrabold tracking-tight" id="status-text" style="font-family:var(--sans)">
+            <span style="color:var(--muted)">—</span>
+          </div>
+        </div>
+        <div id="status-badge-wrap"></div>
+      </div>
+
+      <!-- Confidence arc -->
+      <div class="flex items-center gap-5">
+        <div class="arc-wrap" id="arc-wrap">
+          <svg width="100" height="100" viewBox="0 0 100 100">
+            <circle cx="50" cy="50" r="40" fill="none" stroke="var(--border)" stroke-width="7"/>
+            <circle cx="50" cy="50" r="40" fill="none"
+                    stroke="var(--accent)" stroke-width="7"
+                    stroke-dasharray="251.2" stroke-dashoffset="251.2"
+                    stroke-linecap="round"
+                    id="arc-circle"
+                    style="transition: stroke-dashoffset .6s ease"/>
+          </svg>
+          <div class="arc-label">
+            <span class="metric-val" id="conf-pct" style="font-size:18px">—</span>
+            <span class="label" style="font-size:9px">conf.</span>
+          </div>
+        </div>
+        <div class="flex-1">
+          <p class="label mb-2">Confidence Score</p>
+          <p style="font-size:13px;color:var(--muted);line-height:1.5">
+            Model certainty based on the Random Forest ensemble vote distribution.
+          </p>
+        </div>
+      </div>
+
+      <!-- Input echo -->
+      <div>
+        <p class="label mb-3">Request Payload</p>
+        <div class="rounded-lg p-4 font-mono text-xs leading-6" style="background:#0a1117;border:1px solid var(--border)" id="payload-echo">
+          <span style="color:var(--muted)">// Awaiting prediction request…</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mini log -->
+    <div class="card p-4 flex flex-col gap-2">
+      <p class="label mb-1">System Log</p>
+      <div id="log" class="flex flex-col gap-1 max-h-40 overflow-y-auto" style="font-family:var(--mono);font-size:11px;color:var(--muted)">
+        <span><span style="color:var(--accent2)">SYS</span> &nbsp;Dashboard initialised<span class="cursor">_</span></span>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<script>
+const API = 'http://localhost:5000';
+
+// ── Slider helpers ─────────────────────────────────────────────────────────
+function updateSlider(id, val, unit) {
+  const numVal = parseFloat(val);
+  const input  = document.getElementById(id);
+  const max    = parseFloat(input.max);
+  const pct    = (numVal / max) * 100;
+
+  if (id === 'cpu') document.getElementById('cpu-val').innerHTML = `${val}<span style="font-size:14px;color:var(--muted)">%</span>`;
+  if (id === 'mem') document.getElementById('mem-val').innerHTML = `${val}<span style="font-size:14px;color:var(--muted)">%</span>`;
+  if (id === 'net') document.getElementById('net-val').innerHTML = `${val}<span style="font-size:14px;color:var(--muted)">Mbps</span>`;
+
+  document.getElementById(`${id}-fill`).style.width = pct + '%';
+}
+
+// ── Priority chips ─────────────────────────────────────────────────────────
+function setPriority(val) {
+  document.getElementById('priority').value = val;
+  document.querySelectorAll('.priority-chip').forEach(c => {
+    c.style.borderColor  = 'var(--border)';
+    c.style.background   = '';
+  });
+  const chips = document.querySelectorAll('.priority-chip');
+  const map = { Low: 0, Medium: 1, High: 2, Urgent: 3 };
+  const chip = chips[map[val]];
+  chip.style.borderColor = 'var(--accent)';
+  chip.style.background  = 'rgba(0,229,255,.06)';
+}
+
+// ── Log ────────────────────────────────────────────────────────────────────
+function addLog(msg, type = 'info') {
+  const colors = { info: 'var(--accent)', warn: 'var(--warn)', err: 'var(--danger)', ok: 'var(--success)' };
+  const tags   = { info: 'INF', warn: 'WRN', err: 'ERR', ok: 'ACK' };
+  const el = document.createElement('span');
+  el.innerHTML = `<span style="color:${colors[type]}">${tags[type]}</span> &nbsp;${msg}`;
+  const log = document.getElementById('log');
+  log.appendChild(el);
+  log.scrollTop = log.scrollHeight;
+}
+
+// ── Arc confidence ─────────────────────────────────────────────────────────
+function setArc(pct) {
+  const circ = 2 * Math.PI * 40; // 251.2
+  const offset = circ - (pct / 100) * circ;
+  document.getElementById('arc-circle').style.strokeDashoffset = offset;
+  document.getElementById('conf-pct').textContent = pct != null ? `${pct}%` : '—';
+}
+
+// ── Status colour ─────────────────────────────────────────────────────────
+function statusMeta(status) {
+  const s = (status || '').toLowerCase();
+  if (s.includes('ready'))     return { color: 'var(--success)', badgeBg: 'rgba(0,255,136,.1)',  label: '● Ready'     };
+  if (s.includes('postpone'))  return { color: 'var(--warn)',    badgeBg: 'rgba(255,184,0,.1)',  label: '◐ Postponed' };
+  if (s.includes('running'))   return { color: 'var(--accent)',  badgeBg: 'rgba(0,229,255,.1)',  label: '▶ Running'   };
+  if (s.includes('fail'))      return { color: 'var(--danger)',  badgeBg: 'rgba(255,69,96,.1)',  label: '✕ Failed'    };
+  return { color: 'var(--text)', badgeBg: 'rgba(255,255,255,.05)', label: status };
+}
+
+// ── Main prediction ────────────────────────────────────────────────────────
+async function runPrediction() {
+  const btn     = document.getElementById('run-btn');
+  const spinner = document.getElementById('spinner');
+  const label   = document.getElementById('btn-label');
+
+  btn.disabled       = true;
+  label.style.display = 'none';
+  spinner.style.display = 'block';
+  addLog('Dispatching prediction request…', 'info');
+
+  const payload = {
+    'CPU_Usage_%':          parseFloat(document.getElementById('cpu').value),
+    'Memory_Usage_%':       parseFloat(document.getElementById('mem').value),
+    'Network_Traffic_MBPS': parseFloat(document.getElementById('net').value),
+    'Priority':             document.getElementById('priority').value
+  };
+
+  try {
+    const res  = await fetch(`${API}/predict`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(payload)
+    });
+    const data = await res.json();
+
+    if (!res.ok) throw new Error(data.error || 'API error');
+
+    // ── Update result card ──────────────────────────────────────────────
+    const meta   = statusMeta(data.status);
+    const card   = document.getElementById('result-card');
+    card.className = card.className.replace(/result-\w+/g, '');
+
+    const stateClass = (data.status || '').toLowerCase().includes('ready') ? 'result-ready'
+                     : (data.status || '').toLowerCase().includes('postpone') ? 'result-post'
+                     : 'result-idle';
+    card.classList.add(stateClass, 'fade-up');
+
+    document.getElementById('status-text').innerHTML =
+      `<span style="color:${meta.color}">${data.status}</span>`;
+
+    document.getElementById('status-badge-wrap').innerHTML =
+      `<span class="badge" style="background:${meta.badgeBg};color:${meta.color};margin-top:4px">
+        <span class="badge-dot" style="background:${meta.color}"></span>
+        ${meta.label}
+      </span>`;
+
+    if (data.confidence != null) {
+      setArc(data.confidence);
+      document.getElementById('arc-circle').style.stroke = meta.color;
+    } else {
+      document.getElementById('conf-pct').textContent = 'N/A';
+    }
+
+    // ── Payload echo ────────────────────────────────────────────────────
+    const echo = document.getElementById('payload-echo');
+    const inp  = data.input || payload;
+    echo.innerHTML = `<span style="color:var(--accent2)">POST</span> /predict\n` +
+      Object.entries(inp).map(([k, v]) =>
+        `<span style="color:var(--muted)">${k}:</span> <span style="color:var(--text)">${v}</span>`
+      ).join('\n') +
+      `\n\n<span style="color:var(--muted)">→ status:</span> <span style="color:${meta.color}">"${data.status}"</span>` +
+      (data.confidence != null ? `\n<span style="color:var(--muted)">→ confidence:</span> <span style="color:var(--text)">${data.confidence}%</span>` : '');
+
+    addLog(`Prediction: ${data.status}${data.confidence != null ? ` (${data.confidence}% confidence)` : ''}`, 'ok');
+
+  } catch (err) {
+    const card = document.getElementById('result-card');
+    card.className = card.className.replace(/result-\w+/g, '');
+    card.classList.add('result-error', 'fade-up');
+    document.getElementById('status-text').innerHTML = `<span style="color:var(--danger)">Error</span>`;
+    document.getElementById('status-badge-wrap').innerHTML =
+      `<span class="badge" style="background:rgba(255,69,96,.1);color:var(--danger)">
+        <span class="badge-dot" style="background:var(--danger)"></span>✕ Request Failed
+      </span>`;
+    document.getElementById('payload-echo').innerHTML =
+      `<span style="color:var(--danger)">${err.message}</span>`;
+    addLog(err.message, 'err');
+  } finally {
+    btn.disabled        = false;
+    label.style.display = 'inline';
+    spinner.style.display = 'none';
+  }
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────
+updateSlider('cpu', 50, '%');
+updateSlider('mem', 40, '%');
+updateSlider('net', 25, 'Mbps');
+addLog('Awaiting user input<span class="cursor">_</span>', 'info');
+</script>
+</body>
+</html>
