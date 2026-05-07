@@ -190,69 +190,13 @@ source venv/bin/activate        # macOS / Linux
 pip install -r requirements.txt
 ```
 
-### Run the ML Prediction API
-
-```bash
-python app.py
-# API available at http://localhost:5000
-```
-
-### Run the CORAE Engine
-
-```bash
-cd CORAE
-python app.py
-# Dashboard available at http://localhost:5000
-```
-
 ### Run Tests
 
 ```bash
 pytest tests/ -v
-```
-
-### Open the Web Dashboard
-
-Open `dashboard.html` in your browser, or serve with any local server:
-
-```bash
-python -m http.server 8080
-# Visit http://localhost:8080/dashboard.html
-```
 
 ---
 
-## 🌐 REST API — CORAE Endpoints
-
-Base URL: `http://localhost:5000/api`
-
-| Method | Endpoint | Description |
-|---|---|---|
-| GET | `/status` | Engine health and pool summary |
-| GET | `/machines` | List all machines |
-| POST | `/machines` | Register a new machine |
-| DELETE | `/machines/:id` | Remove a machine |
-| POST | `/machines/:id/release` | Mark machine as available |
-| POST | `/allocate` | Dispatch a job to best machine |
-| GET | `/network/topology` | Graph nodes and edges |
-| POST | `/network/link` | Add a network edge |
-| POST | `/simulate` | Batch simulation |
-| GET | `/log` | Recent allocation history |
-| POST | `/reset` | Reset to initial state |
-
-### ML Prediction Endpoint
-
-```bash
-POST http://localhost:5000/predict
-Content-Type: application/json
-
-{
-  "CPU_Usage_%": 72.5,
-  "Memory_Usage_%": 61.0,
-  "Network_Traffic_MBPS": 145.3,
-  "Priority": "High"
-}
-```
 
 **Response:**
 ```json
@@ -301,9 +245,3 @@ pytest tests/ -v
 
 [MIT](LICENSE)
 
----
-
-## 🔗 Links
-
-- 🤗 **HuggingFace Models**: [gayaneyemishyan/job-scheduler](https://huggingface.co/gayaneyemishyan/job-scheduler)
-- 📁 **Repository**: [GayaneYemishyan/intelligent-job-scheduler](https://github.com/GayaneYemishyan/intelligent-job-scheduler)
