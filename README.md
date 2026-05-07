@@ -241,5 +241,5 @@ pytest tests/ -v
 
 
 
-[MIT](LICENSE)
+
 
