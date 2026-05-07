@@ -239,9 +239,7 @@ pytest tests/ -v
 | **Lilit Zalinyan** | Routing & QA | Weighted Graph, Dijkstra's Algorithm, Job Simulator, 90+ Tests |
 | **Viktorya Margaryan** | Resource Layer | AVL Tree, Allocation Engine, Flask REST API, Web Dashboard |
 
----
 
-## 📄 License
 
 [MIT](LICENSE)
 
